@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Characters Guide True Facials</title>
+  
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- SDK de Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="app" class="layout">
+
+    <!-- TOP BAR -->
+    <header class="top-bar">
+      <button class="menu-toggle" @click="sidebarOpen = !sidebarOpen">☰</button>
+      <div class="search-container">
+        <input 
+          type="text" 
+          v-model="searchQuery" 
+          :placeholder="searchPlaceholder"
+        >
+      </div>
+      
+      <!-- BOTÓN DE ACCESO / AUTENTICACIÓN -->
+      <div style="margin-left: auto; padding-right: 20px;">
+        <button v-if="!currentUser" @click="openLoginModal" class="btn-agregar-item" style="background-color: #3699ff; padding: 6px 12px; font-size: 13px;">
+          🔑 Login
+        </button>
+        <div v-else style="display: flex; align-items: center; gap: 10px; color: white; font-size: 13px;">
+          <span>👤 Admin</span>
+          <button @click="logout" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-wrapper">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" :class="{ 'activa': sidebarOpen }">
+        <nav>
+          <button 
+            :class="{ activo: currentView === 'characters' }" 
+            @click="currentView = 'characters'"
+          >
+            👤 Characters
+          </button>
+          <button 
+            :class="{ activo: currentView === 'franchises' }" 
+            @click="currentView = 'franchises'"
+          >
+            🏷️ Franchises
+          </button>
+          <button 
+            v-if="currentUser"
+            :class="{ activo: currentView === 'capture' }" 
+            @click="openNewCharacterForm"
+          >
+            ➕ Add Character
+          </button>
+          <button 
+            :class="{ activo: currentView === 'generalMods' }" 
+            @click="currentView = 'generalMods'"
+          >
+            📦 Game Mods
+          </button>
+          <button 
+            :class="{ activo: currentView === 'maps' }" 
+            @click="currentView = 'maps'"
+          >
+            🗺️ Maps
+          </button>
+          <button 
+            :class="{ activo: currentView === 'outfitMixer' }" 
+            @click="currentView = 'outfitMixer'"
+            v-if="false"
+          >
+            🎽 Outfit Mixer
+          </button>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="content">
+
+        <!-- 1. CHARACTERS LIST VIEW -->
+        <section v-if="currentView === 'characters'" class="vista-personajes">
+
+          <div class="filtros-bar">
+            <select v-model="genderFilter">
+              <option value="">All Genders</option>
+              <option v-for="s in uniqueGenders" :key="s" :value="s">{{ s }}</option>
+            </select>
+
+            <select v-model="franchiseFilter">
+              <option value="">All Franchises</option>
+              <option v-for="f in uniqueFranchises" :key="f" :value="f">{{ f }}</option>
+            </select>
+
+            <select v-model="themeFilter">
+              <option value="">All Themes</option>
+              <option v-for="t in uniqueThemes" :key="t" :value="t">{{ t }}</option>
+            </select>
+
+            <select v-model="hairFilter">
+              <option value="">Hair Color</option>
+              <option v-for="c in uniqueHairColors" :key="c" :value="c">{{ c }}</option>
+            </select>
+
+            <select v-model="eyesFilter">
+              <option value="">Eye Color</option>
+              <option v-for="o in uniqueEyeColors" :key="o" :value="o">{{ o }}</option>
+            </select>
+
+            <select v-model="skinFilter">
+              <option value="">Skin Tone</option>
+              <option v-for="sk in uniqueSkinTones" :key="sk" :value="sk">{{ sk }}</option>
+            </select>
+
+            <select v-model="bustFilter">
+              <option value="">Bust Size</option>
+              <option v-for="b in uniqueBustSizes" :key="b" :value="b">{{ b }}</option>
+            </select>
+
+            <select v-model="bodyTypeFilter">
+              <option value="">Body Type</option>
+              <option v-for="bt in uniqueBodyTypes" :key="bt" :value="bt">{{ bt }}</option>
+            </select>
+
+            <button v-if="hasActiveFilters" @click="clearFilters" class="btn-limpiar">
+              🧹 Clear Filters
+            </button>
+          </div>
+
+          <div class="lista-personajes">
+            <div 
+              v-for="p in filteredCharacters" 
+              :key="p.id" 
+              class="personaje-item"
+              :class="{ 'es-mod': p.isMod }"
+            >
+              <div class="avatar-container" @click="openCharacterModal(p)">
+                <img :src="p.images[0]" :alt="p.name" class="avatar-img">
+              </div>
+              <div class="personaje-info" @click="openCharacterModal(p)">
+                <h2>{{ p.name }}</h2>
+                <p class="franquicia-tag">{{ Array.isArray(p.franchise) ? p.franchise[0] : p.franchise }}</p>
+                <span v-if="p.isMod" style="font-size: 11px; background: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">MOD</span>
+              </div>
+            </div>
+
+            <div v-if="filteredCharacters.length === 0" class="sin-resultados">
+              No characters found matching the selected filters.
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. FRANCHISES VIEW -->
+        <section v-if="currentView === 'franchises'" class="vista-franquicias">
+          <h2>🏷️ Registered Franchises</h2>
+
+          <div class="grid-franquicias">
+            <div 
+              v-for="item in franchiseList" 
+              :key="item.name" 
+              class="tarjeta-franquicia"
+              @click="openFranchiseModal(item.name)"
+            >
+              <h3>{{ item.name }}</h3>
+              <img 
+                :src="item.banner" 
+                :alt="item.name"
+                @error="$event.target.src = 'img/Franchise/default-franchise.png'"
+              >
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. ADD / EDIT CHARACTER FORM VIEW -->
+        <section v-if="currentView === 'capture'" class="vista-captura" v-if="currentUser">
+          <div class="header-captura">
+            <h2>{{ isEditing ? '🖋️ Edit Character' : '➕ Register New Character' }}</h2>
+            <div class="acciones-json">
+              <button @click="overwriteCharactersJS" class="btn-exportar">💾 Save & Overwrite characters.js</button>
+            </div>
+          </div>
+
+          <form @submit.prevent="saveCharacter" class="form-personaje">
+            
+            <fieldset>
+              <legend>📋 General Information</legend>
+              
+              <!-- PRIMER RENGLÓN: Name, Alias y Model Creator -->
+              <div style="display: flex; gap: 1rem; width: 100%; margin-bottom: 1.5rem;">
+                <label style="flex: 1;">
+                  Name*:
+                  <input type="text" v-model="newChar.name" required placeholder="e.g. 2B" style="width: 100%; box-sizing: border-box;">
+                </label>
+                
+                <label style="flex: 1;">
+                  Alias:
+                  <input type="text" v-model="newChar.alias" placeholder="e.g. YoRHa No. 2 Type B" style="width: 100%; box-sizing: border-box;">
+                </label>
+                
+                <label style="flex: 1;">
+                  Model Creator:
+                  <input type="text" v-model="newChar.modelCreator" list="lista-creadores" placeholder="e.g. PlatinumGames" style="width: 100%; box-sizing: border-box;">
+                  <datalist id="lista-creadores">
+                    <option v-for="item in uniqueCreators" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+              </div>
+
+              <!-- SEGUNDO RENGLÓN: Franchise(s), Theme(s) y Occupation(s) -->
+              <div style="display: flex; gap: 1rem; width: 100%;">
+                
+                <!-- Franquicias -->
+                <div style="flex: 1;">
+                  <label><strong>Franchise(s)*:</strong></label>
+                  <div v-for="(f, index) in newChar.franchise" :key="'franchise-' + index" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" v-model="newChar.franchise[index]" list="lista-franquicias" required placeholder="e.g. NieR Automata" style="flex: 1; box-sizing: border-box;">
+                    <button type="button" @click="removeFranchiseField(index)" class="btn-eliminar-item" title="Remove franchise">🗑️</button>
+                  </div>
+                  <datalist id="lista-franquicias">
+                    <option v-for="item in uniqueFranchises" :key="item" :value="item"></option>
+                  </datalist>
+                  <button type="button" @click="addFranchiseField" class="btn-agregar-item" style="margin-top: 0.5rem;">➕ Add Franchise</button>
+                </div>
+
+                <!-- Temas -->
+                <div style="flex: 1;">
+                  <label><strong>Theme(s):</strong></label>
+                  <div v-for="(t, index) in newChar.theme" :key="'theme-' + index" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" v-model="newChar.theme[index]" list="lista-tematicas" placeholder="e.g. Science fiction" style="flex: 1; box-sizing: border-box;">
+                    <button type="button" @click="removeThemeField(index)" class="btn-eliminar-item" title="Remove theme">🗑️</button>
+                  </div>
+                  <datalist id="lista-tematicas">
+                    <option v-for="item in uniqueThemes" :key="item" :value="item"></option>
+                  </datalist>
+                  <button type="button" @click="addThemeField" class="btn-agregar-item" style="margin-top: 0.5rem;">➕ Add Theme</button>
+                </div>
+
+                <!-- Ocupaciones -->
+                <div style="flex: 1;">
+                  <label><strong>Occupation(s):</strong></label>
+                  <div v-for="(o, index) in newChar.occupation" :key="'occ-' + index" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" v-model="newChar.occupation[index]" list="lista-ocupaciones" placeholder="e.g. Combat android" style="flex: 1; box-sizing: border-box;">
+                    <button type="button" @click="removeOccupationField(index)" class="btn-eliminar-item" title="Remove occupation">🗑️</button>
+                  </div>
+                  <datalist id="lista-ocupaciones">
+                    <option v-for="item in uniqueOccupations" :key="item" :value="item"></option>
+                  </datalist>
+                  <button type="button" @click="addOccupationField" class="btn-agregar-item" style="margin-top: 0.5rem;">➕ Add Occupation</button>
+                </div>
+
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>⚙️ Mod Configuration</legend>
+              
+              <div class="switch-container">
+                <label class="switch">
+                  <input type="checkbox" v-model="newChar.isMod">
+                  <span class="slider"></span>
+                </label>
+                <span style="font-size: 15px; font-weight: bold;">Is this character a Mod?</span>
+              </div>
+
+              <!-- Campos extra condicionales -->
+              <div v-if="newChar.isMod" style="display: flex; flex-direction: column; gap: 1rem; background: #fff8f0; padding: 1rem; border-radius: 6px; border: 1px dashed #e67e22;">
+                <label>
+                  Mod Creator:
+                  <input type="text" v-model="newChar.modCreator" placeholder="e.g. CreatorName" style="width: 100%; box-sizing: border-box;">
+                </label>
+                
+                <label>
+                  Download URL (Mod Link):
+                  <input type="url" v-model="newChar.modDownloadUrl" placeholder="https://www.nexusmods.com/..." style="width: 100%; box-sizing: border-box;">
+                </label>
+
+                <div>
+                  <label style="margin-bottom: 0.5rem; display: block;">Related Base Character:</label>
+                  <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div v-if="newChar.relatedCharacterId" style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc;">
+                      <img :src="getCharacterById(newChar.relatedCharacterId)?.images[0]" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+                      <span>{{ getCharacterById(newChar.relatedCharacterId)?.name }}</span>
+                      <button type="button" @click="removeRelatedCharacter" style="background: none; border: none; cursor: pointer; color: red; font-weight: bold;">✖</button>
+                    </div>
+                    <button type="button" @click="openCharacterSelector" class="btn-agregar-item" style="background-color: #e67e22;">
+                      🔗 Select Related Character
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>🧬 Physical Characteristics</legend>
+              <div class="form-grid">
+                <label>
+                  Gender:
+                  <select v-model="newChar.gender">
+                    <option value="">-- Select --</option>
+                    <option v-for="option in uniqueGenders" :key="option" :value="option">
+                      {{ option }}
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  Height:
+                  <input type="text" v-model="newChar.physical.height" list="lista-estaturas" placeholder="e.g. Average">
+                  <datalist id="lista-estaturas">
+                    <option v-for="item in uniqueHeights" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+                
+                <label>
+                  Hair Color:
+                  <input type="text" v-model="newChar.physical.hair" list="lista-cabellos" placeholder="e.g. White">
+                  <datalist id="lista-cabellos">
+                    <option v-for="item in uniqueHairColors" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+                
+                <label>
+                  Skin Tone:
+                  <input type="text" v-model="newChar.physical.skin" list="lista-pieles" placeholder="e.g. Pale">
+                  <datalist id="lista-pieles">
+                    <option v-for="item in uniqueSkinTones" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+                
+                <label>
+                  Eye Color:
+                  <input type="text" v-model="newChar.physical.eyes" list="lista-ojos" placeholder="e.g. Blue">
+                  <datalist id="lista-ojos">
+                    <option v-for="item in uniqueEyeColors" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+                
+                <label>
+                  Bust Size:
+                  <input type="text" v-model="newChar.physical.bustSize" list="lista-bustos" placeholder="e.g. Average">
+                  <datalist id="lista-bustos">
+                    <option v-for="item in uniqueBustSizes" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+                
+                <label>
+                  Body Type:
+                  <input type="text" v-model="newChar.physical.bodyType" list="lista-cuerpos" placeholder="e.g. Thin">
+                  <datalist id="lista-cuerpos">
+                    <option v-for="item in uniqueBodyTypes" :key="item" :value="item"></option>
+                  </datalist>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="seccion-imagenes">
+              <legend>🖼 Character Images</legend>
+              
+              <div class="opciones-subida">
+                <label class="btn-adjuntar">
+                  📁 Attach Image(s)
+                  <input type="file" accept="image/*" multiple @change="attachImages" hidden>
+                </label>
+                <button type="button" class="btn-agregar-url" @click="addImageField">
+                  ➕ Add Manual Path
+                </button>
+              </div>
+
+              <div class="galeria-formulario">
+                <div v-for="(img, index) in newChar.images" :key="index" class="item-imagen-input">
+                  <span class="badge-num">{{ index + 1 }}</span>
+                  <input 
+                    type="text" 
+                    v-model="newChar.images[index]" 
+                    :placeholder="index === 0 ? 'img/Characters/image.png (Required)' : 'img/Characters/secondary.png'"
+                    :required="index === 0"
+                  >
+                  <button 
+                    type="button" 
+                    class="btn-quitar-img" 
+                    @click="removeImageField(index)"
+                    v-if="newChar.images.length > 1"
+                    title="Remove image"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>👗 Wardrobe / Outfits</legend>
+              
+              <div class="lista-dinamica">
+                <div v-for="(garment, index) in newChar.wardrobe" :key="index" class="fila-dinamica">
+                  <input 
+                    type="text" 
+                    v-model="newChar.wardrobe[index]" 
+                    @keydown.enter.prevent="handleOutfitEnter(index)"
+                    placeholder="e.g. Black Dress"
+                  >
+                  <button 
+                    type="button" 
+                    @click="removeOutfitField(index)" 
+                    class="btn-eliminar-item" 
+                    title="Remove item"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" @click="addOutfitField" class="btn-agregar-item">
+                ➕ Add another garment
+              </button>
+            </fieldset>
+
+            <fieldset>
+              <legend>🧩 Popular Mods (Optional)</legend>
+              
+              <div class="lista-dinamica">
+                <div v-for="(mod, index) in newChar.popularMods" :key="index" style="margin-bottom: 1.5rem; border-bottom: 1px dashed #ccc; padding-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                  
+                  <!-- FILA 1: Mod Name, Mod Creator, Link (URL) y Remove Mod -->
+                  <div style="display: flex; gap: 1rem; align-items: flex-end; width: 100%;">
+                    <label style="flex: 1;">
+                      Mod Name:
+                      <input type="text" v-model="mod.name" placeholder="e.g. Gothic 2B" style="width: 100%; box-sizing: border-box;">
+                    </label>
+
+                    <label style="flex: 1;">
+                      Mod Creator:
+                      <input type="text" v-model="mod.modCreator" placeholder="e.g. ModderName" style="width: 100%; box-sizing: border-box;">
+                    </label>
+
+                    <label style="flex: 2;">
+                      Link (URL):
+                      <input type="text" v-model="mod.url" placeholder="https://www.example.com" style="width: 100%; box-sizing: border-box;">
+                    </label>
+
+                    <div>
+                      <button 
+                        type="button" 
+                        @click="removeModField(index)" 
+                        class="btn-eliminar-item" 
+                        title="Remove mod"
+                        style="white-space: nowrap; padding: 0.5rem 1rem;"
+                      >
+                        🗑️ Remove Mod
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- FILA 2: Mod Image Path -->
+                  <label style="width: 100%;">
+                    Mod Image Path:
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem;">
+                      <input type="text" v-model="mod.image" placeholder="img/Mods Img/Goth 2B.png" style="flex: 1;">
+                      <label class="btn-adjuntar" style="cursor: pointer; padding: 0.5rem 1rem; white-space: nowrap;">
+                        📁 Select File
+                        <input type="file" accept="image/*" @change="attachModImage($event, index)" hidden>
+                      </label>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
+
+              <button type="button" @click="addModField" class="btn-agregar-item">
+                ➕ Add another mod
+              </button>
+            </fieldset>
+
+            <button type="submit" class="btn-guardar">
+              {{ isEditing ? '💾 Update Character' : '💾 Save Character' }}
+            </button>
+          </form>
+        </section>
+
+        <!-- 4. GENERAL MODS LIST VIEW -->
+        <section v-if="currentView === 'generalMods'" class="vista-personajes">
+          <div class="header-captura" style="margin-bottom: 20px;">
+            <h2>📦 Game Mods</h2>
+            <button v-if="currentUser" @click="openNewGeneralModForm" class="btn-agregar-item">➕ Add Game Mod</button>
+          </div>
+
+          <div class="lista-mods-generales">
+            <div 
+              v-for="mod in filteredGeneralMods" 
+              :key="mod.id" 
+              class="personaje-item tarjeta-mod-completa"
+              style="cursor: pointer;"
+              @click="openCharacterModal(mod, 'generalMod')"
+            >
+              <div style="display: flex; gap: 16px; width: 100%; align-items: center; margin-bottom: 10px;">
+                <img :src="mod.images[0]" :alt="mod.name" class="avatar-img" style="width: 60px; height: 60px;">
+                <div style="flex: 1;">
+                  <h3 style="font-size: 18px; color: #2b2c40;">{{ mod.name }}</h3>
+                  <p v-if="mod.modCreator" style="font-size: 13px; color: #666; margin-top: 2px;">
+                    <strong>Creator:</strong> {{ mod.modCreator }}
+                  </p>
+                  <a v-if="mod.url" :href="mod.url" target="_blank" style="font-size: 14px; color: #3699ff; text-decoration: none; font-weight: bold; margin-top: 4px; display: inline-block;">Download Link ↗</a>
+                </div>
+              </div>
+              
+              <p v-if="mod.description" style="font-size: 14px; color: #444; line-height: 1.6; margin-bottom: 15px; width: 100%; word-break: break-word;">
+                {{ mod.description }}
+              </p>
+              
+              <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; border-top: 1px dashed #eee; padding-top: 10px;">
+                <button @click="openEditGeneralModForm(mod)" class="btn-editar-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;"> Edit</button>
+                <button @click="deleteGeneralMod(mod.id)" class="btn-eliminar-item" style="padding: 6px 12px; font-size: 13px;">🗑️ Delete</button>
+              </div>
+            </div>
+
+            <div v-if="generalMods.length === 0" class="sin-resultados">
+              No general mods registered yet.
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. ADD / EDIT Game MOD FORM VIEW -->
+        <section v-if="currentView === 'captureGeneralMod' && currentUser" class="vista-captura">
+          <div class="header-captura">
+            <h2>{{ isEditingGeneralMod ? '🖋️ Edit Game Mod' : '➕ Register New Game Mod' }}</h2>
+          </div>
+
+          <form @submit.prevent="saveGeneralMod" class="form-personaje">
+            <fieldset>
+              <legend>📋 Mod Information</legend>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  Mod Name*:
+                  <input type="text" v-model="newGeneralMod.name" required placeholder="e.g. Overhaul Texture Pack">
+                </label>
+
+                <label>
+                  Mod Creator:
+                  <input type="text" v-model="newGeneralMod.modCreator" placeholder="e.g. Modder123">
+                </label>
+
+                <label>
+                  Description:
+                  <textarea v-model="newGeneralMod.description" rows="3" placeholder="Describe what this mod does..."></textarea>
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- SECCIÓN DE BITÁCORA Y CONFIGURACIÓN DE DESCARGA -->
+            <fieldset>
+              <legend>📜 Changelog & Download Links</legend>
+              
+              <!-- INTERRUPTOR: Mismo enlace para todas las versiones -->
+              <div class="switch-container" style="margin-bottom: 15px;">
+                <label class="switch">
+                  <input type="checkbox" v-model="newGeneralMod.sameDownloadUrl">
+                  <span class="slider"></span>
+                </label>
+                <span style="font-size: 15px; font-weight: bold;">Same download link for all versions?</span>
+              </div>
+
+              <!-- Campo de URL Global (solo si el switch está ON) -->
+              <div v-if="newGeneralMod.sameDownloadUrl" style="margin-bottom: 15px;">
+                <label>
+                  Global Download Link (URL)*:
+                  <input type="url" v-model="newGeneralMod.globalUrl" :required="newGeneralMod.sameDownloadUrl" placeholder="https://www.nexusmods.com/...">
+                </label>
+              </div>
+
+              <!-- Lista de Versiones / Patch Notes -->
+              <div class="lista-dinamica">
+                <div v-for="(entry, index) in newGeneralMod.changelog" :key="index" style="margin-bottom: 1rem; border: 1px dashed #ccc; padding: 1rem; border-radius: 6px; background: #fafafa; display: flex; flex-direction: column; gap: 10px;">
+                  
+                  <div style="display: flex; gap: 1rem;">
+                    <label style="flex: 1;">
+                      Version*:
+                      <input type="text" v-model="entry.version" required placeholder="e.g. v1.2">
+                    </label>
+
+                    <label style="flex: 1;">
+                      Publish Date:
+                      <input type="date" v-model="entry.publishDate">
+                    </label>
+                  </div>
+
+                  <!-- Campo URL Individual (solo si el switch está OFF) -->
+                  <label v-if="!newGeneralMod.sameDownloadUrl">
+                    Download URL*:
+                    <input type="url" v-model="entry.url" :required="!newGeneralMod.sameDownloadUrl" placeholder="https://www.nexusmods.com/...">
+                  </label>
+
+                  <label>
+                    Patch Notes:
+                    <textarea v-model="entry.patchNotes" rows="2" placeholder="What changed in this version..."></textarea>
+                  </label>
+
+                  <div style="display: flex; justify-content: flex-end;">
+                    <button type="button" @click="removeGeneralModChangelogField(index)" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">
+                      🗑️ Remove Version
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" @click="addGeneralModChangelogField" class="btn-agregar-item" style="margin-top: 10px;">
+                ➕ Add New Version
+              </button>
+            </fieldset>
+
+            <fieldset class="seccion-imagenes">
+              <legend>🖼 Mod Images</legend>
+              <div class="opciones-subida">
+                <label class="btn-adjuntar">
+                  📁 Attach Image(s)
+                  <input type="file" accept="image/*" multiple @change="attachGeneralModImages" hidden>
+                </label>
+                <button type="button" class="btn-agregar-url" @click="addGeneralModImageField">
+                  ➕ Add Manual Path
+                </button>
+              </div>
+
+              <div class="galeria-formulario">
+                <div v-for="(img, index) in newGeneralMod.images" :key="index" class="item-imagen-input">
+                  <span class="badge-num">{{ index + 1 }}</span>
+                  <input 
+                    type="text" 
+                    v-model="newGeneralMod.images[index]" 
+                    :placeholder="index === 0 ? 'img/Mods Img/image.png (Required)' : 'img/Mods Img/secondary.png'"
+                    :required="index === 0"
+                  >
+                  <button 
+                    type="button" 
+                    class="btn-quitar-img" 
+                    @click="removeGeneralModImageField(index)"
+                    v-if="newGeneralMod.images.length > 1"
+                    title="Remove image"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="btn-guardar">
+              {{ isEditingGeneralMod ? '💾 Update Game Mod' : '💾 Save Game Mod' }}
+            </button>
+          </form>
+        </section>
+
+        <!-- 6. MAPS LIST VIEW -->
+        <section v-if="currentView === 'maps'" class="vista-personajes">
+          <div class="header-captura" style="margin-bottom: 20px;">
+            <h2>🗺️ Game Maps</h2>
+            <button v-if="currentUser" @click="openNewMapForm" class="btn-agregar-item">➕ Add Map</button>
+          </div>
+
+          <div class="lista-personajes">
+            <div 
+              v-for="map in filteredMaps" 
+              :key="map.id" 
+              class="personaje-item"
+              :class="{ 'es-mod': map.isMod }"
+              style="flex-direction: column; align-items: flex-start; cursor: pointer;" @click="openCharacterModal(map, 'map')"
+            >
+              <div style="display: flex; gap: 12px; width: 100%; align-items: center; margin-bottom: 10px;">
+                <img :src="map.images[0]" :alt="map.name" class="avatar-img">
+                <div style="flex: 1;">
+                  <h3 style="font-size: 16px;">{{ map.name }}</h3>
+                  <span v-if="map.isMod" style="font-size: 11px; background: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">MOD</span>
+                  <div style="margin-top: 4px;">
+                    <a v-if="map.url" :href="map.url" target="_blank" style="font-size: 13px; color: #3699ff;">Download Link ↗</a>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; margin-top: 5px;">
+                <button @click="openEditMapForm(map)" class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;">🖋️ Edit</button>
+                <button @click="deleteMap(map.id)" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">🗑️ Delete</button>
+              </div>
+            </div>
+
+            <div v-if="maps.length === 0" class="sin-resultados">
+              No maps registered yet.
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. ADD / EDIT MAP FORM VIEW -->
+        <section v-if="currentView === 'captureMap' && currentUser" class="vista-captura">
+          <div class="header-captura">
+            <h2>{{ isEditingMap ? '🖋️ Edit Map' : '➕ Register New Map' }}</h2>
+          </div>
+
+          <form @submit.prevent="saveMap" class="form-personaje">
+            <fieldset>
+              <legend>📋 Map Information</legend>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  Map Name*:
+                  <input type="text" v-model="newMap.name" required placeholder="e.g. Raccoon City Streets">
+                </label>
+
+                <div class="switch-container" style="margin-top: 10px;">
+                  <label class="switch">
+                    <input type="checkbox" v-model="newMap.isMod">
+                    <span class="slider"></span>
+                  </label>
+                  <span style="font-size: 15px; font-weight: bold;">Is this map a Mod?</span>
+                </div>
+
+                <!-- Campos opcionales solo si es Mod -->
+                <div v-if="newMap.isMod" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 10px;">
+                  <label>
+                    Mod Creator:
+                    <input type="text" v-model="newMap.modCreator" placeholder="e.g. MapMaker3D">
+                  </label>
+
+                  <label>
+                    Download Link (URL):
+                    <input type="url" v-model="newMap.url" placeholder="https://www.nexusmods.com/...">
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="seccion-imagenes">
+              <legend>🖼 Map Images</legend>
+              
+              <div class="opciones-subida">
+                <label class="btn-adjuntar">
+                  📁 Attach Image(s)
+                  <input type="file" accept="image/*" multiple @change="attachMapImages" hidden>
+                </label>
+                <button type="button" class="btn-agregar-url" @click="addMapImageField">
+                  ➕ Add Manual Path
+                </button>
+              </div>
+
+              <div class="galeria-formulario">
+                <div v-for="(img, index) in newMap.images" :key="index" class="item-imagen-input">
+                  <span class="badge-num">{{ index + 1 }}</span>
+                  <input 
+                    type="text" 
+                    v-model="newMap.images[index]" 
+                    :placeholder="index === 0 ? 'img/maps/image.png (Required)' : 'img/maps/secondary.png'"
+                    :required="index === 0"
+                  >
+                  <button 
+                    type="button" 
+                    class="btn-quitar-img" 
+                    @click="removeMapImageField(index)"
+                    v-if="newMap.images.length > 1"
+                    title="Remove image"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="btn-guardar">
+              {{ isEditingMap ? '💾 Update Map' : '💾 Save Map' }}
+            </button>
+          </form>
+        </section>
+
+        <!-- 8. OUTFIT MIXER LIST VIEW -->
+        <section v-if="currentView === 'outfitMixer'" class="vista-personajes">
+          <div class="header-captura" style="margin-bottom: 20px;" v-if="currentUser">
+            <h2>🎽 Outfit Mixer</h2>
+            <button @click="openNewOutfitMixerForm" class="btn-agregar-item">➕ Add Outfit Mixer</button>
+          </div>
+
+          <div class="lista-mods-generales">
+            <div 
+              v-for="item in outfitMixers" 
+              :key="item.id" 
+              class="personaje-item tarjeta-mod-completa"
+              style="padding: 15px;"
+            >
+              <!-- CONTENEDOR DE DOS MITADES -->
+              <div style="display: flex; gap: 20px; width: 100%; align-items: stretch; margin-bottom: 15px;">
+                
+                <!-- MITAD IZQUIERDA: Imagen redimensionada para verse completa -->
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center; background: #d9dfeb; border-radius: 8px; overflow: hidden; min-height: 200px; max-height: 260px; cursor: pointer;" @click="openCharacterModal(item, 'outfitMixer')">
+                  <img :src="item.images[0]" :alt="item.name" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;">
+                </div>
+
+                <!-- MITAD DERECHA: Información y Código -->
+                <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
+                  <div>
+                    <h3 style="font-size: 20px; color: #2b2c40; margin-bottom: 8px;">{{ item.name }}</h3>
+                    
+                    <!-- Bloque de código con botón de copiar -->
+                    <div v-if="item.code" style="background: #f4f5f7; padding: 10px; border-radius: 6px; border: 1px solid #ddd; max-height: 160px; overflow-y: auto;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <strong style="font-size: 12px; color: #555;">Code:</strong>
+                        <button type="button" @click="copyToClipboard(item.code)" class="btn-agregar-item" style="padding: 2px 8px; font-size: 11px; background-color: #3699ff;">
+                          📋 Copy Code
+                        </button>
+                      </div>
+                      <p style="font-size: 11px; color: #333; font-family: monospace; word-break: break-all; white-space: pre-wrap; margin: 0; line-height: 1.3;">
+                        {{ item.code }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              
+              <!-- Botones inferiores de Edición y Borrado -->
+              <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; border-top: 1px dashed #ddd; padding-top: 10px;">
+                <button @click="openEditOutfitMixerForm(item)" class="btn-editar-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;">🖋️ Edit</button>
+                <button @click="deleteOutfitMixer(item.id)" class="btn-eliminar-item" style="padding: 6px 12px; font-size: 13px;">🗑️ Delete</button>
+              </div>
+            </div>
+
+            <div v-if="outfitMixers.length === 0" class="sin-resultados">
+              No outfit mixer items registered yet.
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. ADD / EDIT OUTFIT MIXER FORM VIEW -->
+        <section v-if="currentView === 'captureOutfitMixer' && currentUser" class="vista-captura">
+          <div class="header-captura">
+            <h2>{{ isEditingOutfitMixer ? '🖋️ Edit Outfit Mixer' : '➕ Register New Outfit Mixer' }}</h2>
+          </div>
+
+          <form @submit.prevent="saveOutfitMixer" class="form-personaje">
+            <fieldset>
+              <legend>📋 Outfit Information</legend>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  Name*:
+                  <input type="text" v-model="newOutfitMixer.name" required placeholder="e.g. Cyberpunk Combo 01">
+                </label>
+
+                <label style="margin-top: 10px;">
+                  Code:
+                  <textarea 
+                    v-model="newOutfitMixer.code" 
+                    rows="4" 
+                    placeholder="Paste long code string here..." 
+                    style="width: 100%; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; font-family: monospace; box-sizing: border-box; resize: vertical;"
+                  ></textarea>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="seccion-imagenes">
+              <legend>🖼 Images</legend>
+              
+              <div class="opciones-subida">
+                <label class="btn-adjuntar">
+                  📁 Attach Image(s)
+                  <input type="file" accept="image/*" multiple @change="attachOutfitMixerImages" hidden>
+                </label>
+                <button type="button" class="btn-agregar-url" @click="addOutfitMixerImageField">
+                  ➕ Add Manual Path
+                </button>
+              </div>
+
+              <div class="galeria-formulario">
+                <div v-for="(img, index) in newOutfitMixer.images" :key="index" class="item-imagen-input">
+                  <span class="badge-num">{{ index + 1 }}</span>
+                  <input 
+                    type="text" 
+                    v-model="newOutfitMixer.images[index]" 
+                    :placeholder="index === 0 ? 'img/Mods Img/image.png (Required)' : 'img/Mods Img/secondary.png'"
+                    :required="index === 0"
+                  >
+                  <button 
+                    type="button" 
+                    class="btn-quitar-img" 
+                    @click="removeOutfitMixerImageField(index)"
+                    v-if="newOutfitMixer.images.length > 1"
+                    title="Remove image"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="btn-guardar">
+              {{ isEditingOutfitMixer ? '💾 Update Outfit Mixer' : '💾 Save Outfit Mixer' }}
+            </button>
+          </form>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- MODAL 1: ITEM DETAILS (Character, Map, or General Mod) -->
+    <div v-if="characterModalVisible" class="modal-overlay modal-personaje-overlay" @click.self="closeCharacterModal">
+      <div class="modal-content modal-personaje">
+        <button class="modal-close" @click="closeCharacterModal">✖</button>
+        
+        <div class="modal-header">
+          <h2>{{ selectedCharacter.name }} <span v-if="selectedCharacter.isMod" style="background: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">MOD</span></h2>
+          <p class="alias" v-if="selectedCharacter.alias"><em>"{{ selectedCharacter.alias }}"</em></p>
+          <p class="alias" v-if="selectedCharacter.modCreator"><em>By: {{ selectedCharacter.modCreator }}</em></p>
+          
+          <!-- Botón de edición solo para personajes por ahora -->
+          <button v-if="selectedCharacter.type === 'character' && currentUser" class="btn-editar-modal" @click="openEditCharacterForm(selectedCharacter)">🖋️ Edit Data</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Galería de Imágenes (Común para todos) -->
+          <div class="galeria-seccion" v-if="selectedCharacter.images && selectedCharacter.images.length > 0">
+            <div class="imagen-principal">
+              <img :src="activeImage" :alt="selectedCharacter.name">
+            </div>
+            <div class="miniaturas" v-if="selectedCharacter.images.length > 1">
+              <img 
+                v-for="(img, idx) in selectedCharacter.images" 
+                :key="idx" 
+                :src="img" 
+                :class="{ seleccionada: activeImage === img }"
+                @click="activeImage = img"
+              >
+            </div>
+          </div>
+
+          <!-- CONTENIDO CONDICIONAL SEGÚN EL TIPO -->
+          <div class="datos-grid">
+            
+            <!-- 1. SI ES UN PERSONAJE -->
+            <template v-if="!selectedCharacter.type || selectedCharacter.type === 'character'">
+              <div class="bloque-datos">
+                <h3>📋 General</h3>
+                <p v-if="selectedCharacter.gender"><strong>Gender:</strong> {{ selectedCharacter.gender }}</p>
+                <p><strong>Franchise:</strong> {{ Array.isArray(selectedCharacter.franchise) ? selectedCharacter.franchise.join(', ') : selectedCharacter.franchise }}</p>
+                <p><strong>Model Creator:</strong> {{ selectedCharacter.modelCreator || 'Not specified' }}</p>
+                <p><strong>Theme:</strong> {{ Array.isArray(selectedCharacter.theme) ? selectedCharacter.theme.join(', ') : selectedCharacter.theme }}</p>
+                <p><strong>Occupation:</strong> {{ Array.isArray(selectedCharacter.occupation) ? selectedCharacter.occupation.join(', ') : selectedCharacter.occupation }}</p>
+              </div>
+
+              <div class="bloque-datos" v-if="selectedCharacter.isMod">
+                <h3>⚙️ Mod Details</h3>
+                <p v-if="selectedCharacter.modCreator"><strong>Mod Creator:</strong> {{ selectedCharacter.modCreator }}</p>
+                
+                <div v-if="selectedCharacter.relatedCharacterId && getCharacterById(selectedCharacter.relatedCharacterId)" 
+                     @click="openCharacterModal(getCharacterById(selectedCharacter.relatedCharacterId), 'character');" 
+                     class="personaje-item" 
+                     style="margin-top: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer;"
+                >
+                  <div class="avatar-container">
+                    <img :src="getCharacterById(selectedCharacter.relatedCharacterId).images[0]" class="avatar-img">
+                  </div>
+                  <div class="personaje-info">
+                    <h2>{{ getCharacterById(selectedCharacter.relatedCharacterId).name }}</h2>
+                    <p class="franquicia-tag">{{ Array.isArray(getCharacterById(selectedCharacter.relatedCharacterId).franchise) ? getCharacterById(selectedCharacter.relatedCharacterId).franchise[0] : getCharacterById(selectedCharacter.relatedCharacterId).franchise }}</p>
+                  </div>
+                </div>
+
+                <div v-if="selectedCharacter.modDownloadUrl" style="margin-top: 10px;">
+                  <a :href="selectedCharacter.modDownloadUrl" target="_blank" class="btn-exportar" style="display: inline-block; text-decoration: none; text-align: center;">📥 Download Mod ↗</a>
+                </div>
+              </div>
+
+              <div class="bloque-datos" v-if="selectedCharacter.physical">
+                <h3>🧬 Physical</h3>
+                <p><strong>Height:</strong> {{ selectedCharacter.physical?.height }}</p>
+                <p><strong>Hair:</strong> {{ selectedCharacter.physical?.hair }}</p>
+                <p><strong>Skin:</strong> {{ selectedCharacter.physical?.skin }}</p>
+                <p><strong>Eyes:</strong> {{ selectedCharacter.physical?.eyes }}</p>
+                <p><strong>Bust:</strong> {{ selectedCharacter.physical?.bustSize }}</p>
+                <p><strong>Body:</strong> {{ selectedCharacter.physical?.bodyType }}</p>
+              </div>
+
+              <div class="bloque-datos" v-if="selectedCharacter.wardrobe?.length">
+                <h3>👗 Wardrobe</h3>
+                <ul>
+                  <li v-for="item in selectedCharacter.wardrobe" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+
+              <div class="bloque-datos" v-if="selectedCharacter.popularMods?.length">
+                <h3>🧩 Popular Mods</h3>
+                <div v-for="mod in selectedCharacter.popularMods" :key="mod.name" class="mod-item" style="margin-bottom: 15px;">
+                  <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <a :href="mod.url" target="_blank" v-if="mod.url">{{ mod.name }} ↗</a>
+                    <strong v-else>{{ mod.name }}</strong>
+                    <span v-if="mod.modCreator" style="font-size: 12px; color: #666;">By: {{ mod.modCreator }}</span>
+                  </div>
+                  <div class="imagen-principal" style="margin-top: 5px;" v-if="mod.image">
+                    <img :src="mod.image" :alt="mod.name">
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 2. SI ES UN MAPA -->
+            <template v-if="selectedCharacter.type === 'map'">
+              <div class="bloque-datos" style="grid-column: 1 / -1;">
+                <h3>🗺️ Map Information</h3>
+                <p><strong>Name:</strong> {{ selectedCharacter.name }}</p>
+                <p v-if="selectedCharacter.modCreator"><strong>Creator:</strong> {{ selectedCharacter.modCreator }}</p>
+                <div v-if="selectedCharacter.isMod && selectedCharacter.url" style="margin-top: 15px;">
+                  <a :href="selectedCharacter.url" target="_blank" class="btn-exportar" style="display: inline-block; text-decoration: none; text-align: center;">📥 Download Map Mod ↗</a>
+                </div>
+              </div>
+            </template>
+
+            <!-- 3. SI ES UN MOD GENERAL -->
+            <template v-if="selectedCharacter.type === 'generalMod'">
+              <div class="bloque-datos" style="grid-column: 1 / -1;">
+                <h3>📦 Mod Information</h3>
+                <p><strong>Name:</strong> {{ selectedCharacter.name }}</p>
+                <p v-if="selectedCharacter.modCreator"><strong>Creator:</strong> {{ selectedCharacter.modCreator }}</p>
+                
+                <p v-if="selectedCharacter.description" style="margin-top: 10px; line-height: 1.6; white-space: pre-wrap;">
+                  <strong>Description:</strong><br>{{ selectedCharacter.description }}
+                </p>
+
+                <!-- Historial de Versiones / Changelog -->
+                <div v-if="selectedCharacter.changelog?.length" style="margin-top: 15px;">
+                  <h4>📜 Version History / Changelog</h4>
+                  <div v-for="ver in selectedCharacter.changelog" :key="ver.version" style="background: #f9f9f9; padding: 10px; border-radius: 6px; margin-top: 8px; border: 1px solid #eee;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <strong>Version: {{ ver.version }}</strong>
+                      <span v-if="ver.publishDate" style="font-size: 12px; color: #666;">{{ ver.publishDate }}</span>
+                    </div>
+                    <p v-if="ver.patchNotes" style="font-size: 13px; color: #444; margin: 6px 0; white-space: pre-wrap;">{{ ver.patchNotes }}</p>
+
+                    <!-- Link individual o Global -->
+                    <div style="margin-top: 6px;">
+                      <a :href="selectedCharacter.sameDownloadUrl ? selectedCharacter.globalUrl : ver.url" target="_blank" class="btn-exportar" style="display: inline-block; text-decoration: none; font-size: 12px; padding: 4px 10px;">
+                        📥 Download v{{ ver.version }} ↗
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </template>
+
+            <!-- 4. SI ES UN OUTFIT MIXER -->
+            <template v-if="selectedCharacter.type === 'outfitMixer'">
+              <div class="bloque-datos" style="grid-column: 1 / -1;">
+                <h3>🎽 Outfit Mixer Information</h3>
+                <p><strong>Name:</strong> {{ selectedCharacter.name }}</p>
+                <div v-if="selectedCharacter.code" style="margin-top: 10px; background: #eee; padding: 10px; border-radius: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <strong>Code:</strong>
+                    <button type="button" @click="copyToClipboard(selectedCharacter.code)" class="btn-agregar-item" style="padding: 2px 8px; font-size: 11px; background-color: #3699ff;">
+                      📋 Copy Code
+                    </button>
+                  </div>
+                  <p style="font-family: monospace; word-break: break-all; white-space: pre-wrap; font-size: 12px; margin: 0; line-height: 1.4;">
+                    {{ selectedCharacter.code }}
+                  </p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: FRANCHISE DETAILS -->
+    <div v-if="franchiseModalVisible" class="modal-overlay modal-franquicia-overlay" @click.self="closeFranchiseModal">
+      <div class="modal-content modal-franquicia">
+        <button class="modal-close" @click="closeFranchiseModal">✖</button>
+        
+        <h2>Franchise: {{ selectedFranchise }}</h2>
+        <p class="subtitulo">Select a character to view details</p>
+
+        <div class="lista-personajes-modal">
+          <div 
+            v-for="p in franchiseCharacters" 
+            :key="p.id" 
+            class="personaje-item"
+            @click="openCharacterModal(p)"
+          >
+            <div class="avatar-container">
+              <img :src="p.images[0]" :alt="p.name" class="avatar-img">
+            </div>
+            <div class="personaje-info">
+              <h3>{{ p.name }}</h3>
+              <p><b>Body:</b> {{ p.physical?.bodyType }} <b>Bust:</b> {{ p.physical?.bustSize }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: SELECTOR DE PERSONAJE RELACIONADO -->
+    <div v-if="characterSelectorVisible" class="modal-overlay" @click.self="closeCharacterSelector" style="z-index: 300;">
+      <div class="modal-content" style="max-width: 500px;">
+        <button class="modal-close" @click="closeCharacterSelector">✖</button>
+        <h2>Select Related Character</h2>
+        <input 
+          type="text" 
+          v-model="selectorSearchQuery" 
+          placeholder="Search character..." 
+          style="width: 100%; padding: 8px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;"
+        >
+        <div style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <div 
+            v-for="c in characters.filter(ch => ch.name.toLowerCase().includes(selectorSearchQuery.toLowerCase()))" 
+            :key="c.id" 
+            @click="selectRelatedCharacter(c)"
+            style="display: flex; align-items: center; gap: 10px; padding: 8px; background: #f9f9f9; border-radius: 6px; cursor: pointer; transition: background 0.2s;"
+            onmouseover="this.style.background='#f1f1f1'"
+            onmouseout="this.style.background='#f9f9f9'"
+          >
+            <img :src="c.images[0]" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+            <div>
+              <strong>{{ c.name }}</strong>
+              <p style="font-size: 12px; color: #666;">{{ Array.isArray(c.franchise) ? c.franchise.join(', ') : c.franchise }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: LOGIN -->
+    <div v-if="loginModalVisible" class="modal-overlay" @click.self="closeLoginModal" style="z-index: 400;">
+      <div class="modal-content" style="max-width: 350px;">
+        <button class="modal-close" @click="closeLoginModal">✖</button>
+        <h2>Editor Login</h2>
+        <form @submit.prevent="login" style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+          <label>
+            Username:
+            <input type="text" v-model="loginForm.username" required placeholder="Tu usuario" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px;">
+          </label>
+          <label>
+            Password:
+            <input type="password" v-model="loginForm.password" required placeholder="********" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 4px;">
+          </label>
+          <button type="submit" class="btn-guardar" style="margin-top: 10px;">Ingresar</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="characters.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
