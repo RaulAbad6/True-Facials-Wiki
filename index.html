@@ -911,7 +911,7 @@
           <p class="alias" v-if="selectedCharacter.modCreator"><em>By: {{ selectedCharacter.modCreator }}</em></p>
           
           <div class="action-buttons" v-if="currentUser">
-  <button class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="editCharacter(selectedCharacter)">
+  <button class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="openEditCharacterForm(selectedCharacter)">
     ✏️ Edit
   </button>
   <button class="btn-delete-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="deleteCharacter(selectedCharacter.id)">
