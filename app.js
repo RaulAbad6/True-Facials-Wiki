@@ -33,15 +33,25 @@ createApp({
         password: ''
       },
 
+      newFranchise: {
+      id: '',
+      name: '',
+      image: '',
+      pendingFiles: [] // Almacenará temporalmente el archivo optimizado
+      },
+
+      franchiseFormModalVisible: false, // Controla la apertura del modal del formulario
+      newFranchise: this.getEmptyFranchiseObject(),
+
       outfitMixers: JSON.parse(localStorage.getItem('wiki_outfitMixers')) || [],
       isEditingOutfitMixer: false,
       newOutfitMixer: this.getEmptyOutfitMixerObject(),
 
-      maps: JSON.parse(localStorage.getItem('wiki_maps')) || [],
+      maps: [],
       isEditingMap: false,
       newMap: this.getEmptyMapObject(),
       
-      generalMods: JSON.parse(localStorage.getItem('wiki_generalMods')) || [],
+      generalMods: [],
       isEditingGeneralMod: false,
       newGeneralMod: this.getEmptyGeneralModObject(),
       searchQuery: '',
@@ -60,7 +70,7 @@ createApp({
 
       genderOptions: ['Femenine', 'Masculine'],
 
-      characters: JSON.parse(localStorage.getItem('wiki_characters')) || window.initialCharacters || [],
+      characters: [],
 
       characterModalVisible: false,
       franchiseModalVisible: false,
@@ -192,11 +202,13 @@ createApp({
     },
 
     franchiseList() {
-      return this.uniqueFranchises.map(franchise => ({
-        name: franchise,
-        banner: `img/Franchise/${franchise}.png`
-      }));
-    },
+    return this.franchises.map(franchise => ({
+      id: franchise.id,
+      name: franchise.name,
+      // Si la franquicia tiene una URL de Supabase la usa, de lo contrario deja un string vacío o una imagen por defecto
+      banner: franchise.image || '' 
+    }));
+  },
 
     franchiseCharacters() {
       return this.characters
@@ -238,6 +250,144 @@ createApp({
         ]
       };
     },
+
+    getEmptyFranchiseObject() {
+  return {
+    id: '',
+    name: '',
+    image: '',
+    pendingFiles: []
+  };
+},
+
+// Abrir y cerrar el modal del formulario
+openNewFranchiseModal() {
+  this.newFranchise = this.getEmptyFranchiseObject();
+  this.franchiseFormModalVisible = true;
+},
+
+closeNewFranchiseModal() {
+  this.franchiseFormModalVisible = false;
+  this.newFranchise = this.getEmptyFranchiseObject();
+},
+
+    async fetchFranchises() {
+  const { data, error } = await supabaseClient
+    .from('franchises')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching franchises:', error);
+  } else if (data) {
+    // Sobrescribimos el arreglo local con los datos de Supabase
+    this.franchises = data; 
+  }
+},
+
+
+extractStoragePath(publicUrl) {
+  if (!publicUrl || typeof publicUrl !== 'string') return null;
+  const marker = '/wiki-images/';
+  const parts = publicUrl.split(marker);
+  if (parts.length > 1) {
+    return parts[1]; // Retorna algo como 'characters/1689234-abc.jpg'
+  }
+  return null;
+},
+
+    async attachFranchiseImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // 1. Optimizar usando la función que ya creamos antes (<200 KB)
+  const optimizedFile = await this.optimizeImageFile(file);
+  
+  // 2. Generar vista previa temporal en el navegador
+  const previewUrl = URL.createObjectURL(optimizedFile);
+
+  this.newFranchise.image = previewUrl;
+  
+  // 3. Guardar en pendientes para subirlo solo al hacer clic en Guardar
+  this.newFranchise.pendingFiles = [{
+    file: optimizedFile
+  }];
+
+  event.target.value = '';
+},
+
+async saveFranchise() {
+  // 1. Subir la imagen pendiente si existe
+  if (this.newFranchise.pendingFiles && this.newFranchise.pendingFiles.length > 0) {
+    const item = this.newFranchise.pendingFiles[0];
+    const publicUrl = await this.uploadImageToSupabase(item.file, 'franchises');
+    if (publicUrl) {
+      this.newFranchise.image = publicUrl;
+    }
+    delete this.newFranchise.pendingFiles;
+  }
+
+  this.newFranchise.name = this.newFranchise.name.trim();
+
+  // 2. Preparamos el payload (si es nuevo, omitimos el ID para que Supabase lo genere)
+  const payload = {
+    name: this.newFranchise.name,
+    image: this.newFranchise.image
+  };
+
+  // Si ya tienes un ID existente (en caso de edición futura), lo incluyes
+  if (this.newFranchise.id) {
+    payload.id = this.newFranchise.id;
+  }
+
+  const { error } = await supabaseClient.from('franchises').upsert(payload);
+
+  if (error) {
+    alert('Error saving franchise: ' + error.message);
+  } else {
+    alert('Franchise saved successfully to cloud!');
+    await this.fetchFranchises();
+    this.closeNewFranchiseModal();
+  }
+},
+
+async deleteFranchise(id) {
+  if (confirm('Are you sure you want to delete this franchise?')) {
+    
+    // 1. Encontrar la franquicia para obtener la URL de su imagen en Supabase
+    const franchiseToDelete = this.franchises.find(f => f.id === id);
+
+    if (franchiseToDelete && franchiseToDelete.image) {
+      const path = this.extractStoragePath(franchiseToDelete.image);
+      
+      // 2. Borrar el archivo físico de la carpeta 'franchises' en el Storage
+      if (path) {
+        const { error: storageError } = await supabaseClient.storage
+          .from('wiki-images')
+          .remove([path]);
+          
+        if (storageError) {
+          console.error('Error deleting franchise image from storage:', storageError.message);
+        }
+      }
+    }
+
+    // 3. Borrar el registro de la tabla 'franchises' en Supabase
+    const { error } = await supabaseClient.from('franchises').delete().eq('id', id);
+    
+    if (error) {
+      alert('Error deleting franchise: ' + error.message);
+    } else {
+      alert('Franchise deleted successfully!');
+      await this.fetchFranchises();
+    }
+  }
+},
+
+removeFranchiseImage() {
+  this.newFranchise.image = '';
+  this.newFranchise.pendingFiles = [];
+},
 
     async uploadImageToSupabase(file, folder = 'characters') {
       try {
@@ -322,12 +472,13 @@ createApp({
     },
 
     async fetchAllData() {
-      await Promise.all([
-        this.fetchCharacters(),
-        this.fetchGeneralMods(),
-        this.fetchMaps()
-      ]);
-    },
+  await Promise.all([
+    this.fetchCharacters(),
+    this.fetchGeneralMods(),
+    this.fetchMaps(),
+    this.fetchFranchises()
+  ]);
+},
 
     async fetchCharacters() {
       const { data, error } = await supabaseClient
@@ -546,12 +697,43 @@ createApp({
     },
 
     async deleteMap(id) {
-      if (confirm('Are you sure you want to delete this map?')) {
-        const { error } = await supabaseClient.from('maps').delete().eq('id', id);
-        if (error) alert('Error deleting map: ' + error.message);
-        else await this.fetchMaps();
+  if (confirm('Are you sure you want to delete this map?')) {
+    
+    // 1. Encontrar el mapa en la lista actual para acceder a sus imágenes
+    const mapToDelete = this.maps.find(m => m.id === id);
+
+    if (mapToDelete && mapToDelete.images) {
+      const pathsToDelete = [];
+
+      // Recolectar rutas de las imágenes del mapa
+      mapToDelete.images.forEach(url => {
+        const path = this.extractStoragePath(url);
+        if (path) pathsToDelete.push(path);
+      });
+
+      // Borrar los archivos del Storage si hay rutas válidas
+      if (pathsToDelete.length > 0) {
+        const { error: storageError } = await supabaseClient.storage
+          .from('wiki-images')
+          .remove(pathsToDelete);
+          
+        if (storageError) {
+          console.error('Error deleting map images from storage:', storageError.message);
+        }
       }
-    },
+    }
+
+    // 2. Borrar el registro del mapa en la tabla de Supabase
+    const { error } = await supabaseClient.from('maps').delete().eq('id', id);
+    
+    if (error) {
+      alert('Error deleting map: ' + error.message);
+    } else {
+      alert('Map deleted successfully!');
+      await this.fetchMaps();
+    }
+  }
+},
 
     getEmptyGeneralModObject() {
       return {
@@ -685,12 +867,42 @@ createApp({
     },
 
     async deleteGeneralMod(id) {
-      if (confirm('Are you sure you want to delete this general mod?')) {
-        const { error } = await supabaseClient.from('general_mods').delete().eq('id', id);
-        if (error) alert('Error deleting mod: ' + error.message);
-        else await this.fetchGeneralMods();
+  if (confirm('Are you sure you want to delete this general mod?')) {
+    
+    // 1. Encontrar el mod general en la lista actual para acceder a sus imágenes
+    const modToDelete = this.generalMods.find(m => m.id === id);
+
+    if (modToDelete && modToDelete.images) {
+      const pathsToDelete = [];
+
+      // Recolectar rutas de las imágenes del mod general
+      modToDelete.images.forEach(url => {
+        const path = this.extractStoragePath(url);
+        if (path) pathsToDelete.push(path);
+      });
+
+      // Borrar los archivos del Storage si hay rutas válidas
+      if (pathsToDelete.length > 0) {
+        const { error: storageError } = await supabaseClient.storage
+          .from('wiki-images')
+          .remove(pathsToDelete);
+          
+        if (storageError) {
+          console.error('Error deleting general mod images from storage:', storageError.message);
+        }
       }
-    },
+    }
+
+    // 2. Borrar el registro del mod general en la tabla de Supabase
+    const { error } = await supabaseClient.from('general_mods').delete().eq('id', id);
+    
+    if (error) {
+      alert('Error deleting mod: ' + error.message);
+    } else {
+      await this.fetchGeneralMods();
+    }
+  }
+},
 
     getEmptyOutfitMixerObject() {
       return {
@@ -1029,12 +1241,56 @@ createApp({
     },
 
     async deleteCharacter(id) {
-      if (confirm('Are you sure you want to delete this character?')) {
-        const { error } = await supabaseClient.from('characters').delete().eq('id', id);
-        if (error) alert('Error deleting character: ' + error.message);
-        else await this.fetchCharacters();
+  if (confirm('Are you sure you want to delete this character?')) {
+    
+    // 1. Encontrar el personaje en la lista actual para acceder a sus imágenes
+    const charToDelete = this.characters.find(c => c.id === id);
+
+    if (charToDelete) {
+      const pathsToDelete = [];
+
+      // A. Recolectar rutas de las imágenes principales del personaje
+      if (charToDelete.images) {
+        charToDelete.images.forEach(url => {
+          const path = this.extractStoragePath(url);
+          if (path) pathsToDelete.push(path);
+        });
       }
-    },
+
+      // B. Recolectar rutas de las imágenes de los mods populares (si tiene)
+      if (charToDelete.popularMods) {
+        charToDelete.popularMods.forEach(mod => {
+          if (mod.image) {
+            const path = this.extractStoragePath(mod.image);
+            if (path) pathsToDelete.push(path);
+          }
+        });
+      }
+
+      // C. Borrar los archivos físicos del Storage si hay rutas válidas
+      if (pathsToDelete.length > 0) {
+        const { error: storageError } = await supabaseClient.storage
+          .from('wiki-images')
+          .remove(pathsToDelete);
+          
+        if (storageError) {
+          console.error('Error deleting images from storage:', storageError.message);
+        }
+      }
+    }
+
+    // 2. Borrar el registro de la tabla en Supabase
+    const { error } = await supabaseClient.from('characters').delete().eq('id', id);
+    
+    if (error) {
+      alert('Error deleting character: ' + error.message);
+    } else {
+      alert('Character deleted successfully!');
+      this.closeCharacterModal(); 
+      await this.fetchCharacters(); 
+    }
+  }
+},
 
     async attachImages(event) {
       const files = Array.from(event.target.files);
@@ -1102,5 +1358,40 @@ createApp({
         console.error('Failed to copy code: ', err);
       });
     },
+
+    // Remover miniatura de personaje
+    removeCharacterImage(index) {
+      this.newChar.images.splice(index, 1);
+      if (this.newChar.pendingFiles) {
+        this.newChar.pendingFiles = this.newChar.pendingFiles.filter(item => item.index !== index);
+        // Reindexar pendientes
+        this.newChar.pendingFiles.forEach(item => {
+          if (item.index > index) item.index--;
+        });
+      }
+    },
+
+    // Remover miniatura de general mod
+    removeGeneralModImage(index) {
+      this.newGeneralMod.images.splice(index, 1);
+      if (this.newGeneralMod.pendingFiles) {
+        this.newGeneralMod.pendingFiles = this.newGeneralMod.pendingFiles.filter(item => item.index !== index);
+        this.newGeneralMod.pendingFiles.forEach(item => {
+          if (item.index > index) item.index--;
+        });
+      }
+    },
+
+    // Remover miniatura de mapa
+    removeMapImage(index) {
+      this.newMap.images.splice(index, 1);
+      if (this.newMap.pendingFiles) {
+        this.newMap.pendingFiles = this.newMap.pendingFiles.filter(item => item.index !== index);
+        this.newMap.pendingFiles.forEach(item => {
+          if (item.index > index) item.index--;
+        });
+      }
+    },
+
   },
 }).mount('#app');

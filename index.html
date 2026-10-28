@@ -39,55 +39,55 @@
     </header>
 
     <div class="main-wrapper">
-      <!-- SIDEBAR -->
-      <aside class="sidebar" :class="{ 'activa': sidebarOpen }">
-        <nav>
-          <button 
-            :class="{ activo: currentView === 'characters' }" 
-            @click="currentView = 'characters'"
-          >
-            👤 Characters
-          </button>
-          <button 
-            :class="{ activo: currentView === 'franchises' }" 
-            @click="currentView = 'franchises'"
-          >
-            🏷️ Franchises
-          </button>
-          <button 
-            v-if="currentUser"
-            :class="{ activo: currentView === 'capture' }" 
-            @click="openNewCharacterForm"
-          >
-            ➕ Add Character
-          </button>
-          <button 
-            :class="{ activo: currentView === 'generalMods' }" 
-            @click="currentView = 'generalMods'"
-          >
-            📦 Game Mods
-          </button>
-          <button 
-            :class="{ activo: currentView === 'maps' }" 
-            @click="currentView = 'maps'"
-          >
-            🗺️ Maps
-          </button>
-          <button 
-            :class="{ activo: currentView === 'outfitMixer' }" 
-            @click="currentView = 'outfitMixer'"
-            v-if="false"
-          >
-            🎽 Outfit Mixer
-          </button>
-        </nav>
-      </aside>
+     <!-- SIDEBAR -->
+<aside class="sidebar" :class="{ 'activa': sidebarOpen }">
+  <nav>
+    <button 
+      :class="{ activo: currentView === 'characters' }" 
+      @click="currentView = 'characters'"
+    >
+      👤 Characters
+    </button>
+    <button 
+      :class="{ activo: currentView === 'franchises' }" 
+      @click="currentView = 'franchises'"
+    >
+      🏷️ Franchises
+    </button>
+    <button 
+      :class="{ activo: currentView === 'generalMods' }" 
+      @click="currentView === 'generalMods'"
+    >
+      📦 Game Mods
+    </button>
+    <button 
+      :class="{ activo: currentView === 'maps' }" 
+      @click="currentView === 'maps'"
+    >
+      🗺️ Maps
+    </button>
+    <button 
+      :class="{ activo: currentView === 'outfitMixer' }" 
+      @click="currentView = 'outfitMixer'"
+      v-if="false"
+    >
+      🎽 Outfit Mixer
+    </button>
+  </nav>
+</aside>
 
       <!-- MAIN CONTENT -->
       <main class="content">
 
         <!-- 1. CHARACTERS LIST VIEW -->
         <section v-if="currentView === 'characters'" class="vista-personajes">
+
+          <div class="header-captura" style="margin-bottom: 20px;">
+          <h2>👤 Characters Directory</h2>
+          <button v-if="currentUser" @click="openNewCharacterForm" class="btn-agregar-item">
+            ➕ Add Character
+          </button>
+          </div>
 
           <div class="filtros-bar">
             <select v-model="genderFilter">
@@ -159,33 +159,36 @@
         </section>
 
         <!-- 2. FRANCHISES VIEW -->
-        <section v-if="currentView === 'franchises'" class="vista-franquicias">
-          <h2>🏷️ Registered Franchises</h2>
+<section v-if="currentView === 'franchises'" class="vista-franquicias">
+  <div class="header-captura" style="margin-bottom: 20px;">
+    <h2>🏷️ Registered Franchises</h2>
+    <!-- Botón que abre el modal de registro de franquicia -->
+    <button v-if="currentUser" @click="openNewFranchiseModal" class="btn-agregar-item">
+      ➕ Add Franchise
+    </button>
+  </div>
 
-          <div class="grid-franquicias">
-            <div 
-              v-for="item in franchiseList" 
-              :key="item.name" 
-              class="tarjeta-franquicia"
-              @click="openFranchiseModal(item.name)"
-            >
-              <h3>{{ item.name }}</h3>
-              <img 
-                :src="item.banner" 
-                :alt="item.name"
-                @error="$event.target.src = 'img/Franchise/default-franchise.png'"
-              >
-            </div>
-          </div>
-        </section>
+  <div class="grid-franquicias">
+    <div 
+      v-for="item in franchiseList" 
+      :key="item.name" 
+      class="tarjeta-franquicia"
+      @click="openFranchiseModal(item.name)"
+    >
+      <h3>{{ item.name }}</h3>
+      <img 
+        :src="item.banner" 
+        :alt="item.name"
+        @error="$event.target.src = 'img/Franchise/default-franchise.png'"
+      >
+    </div>
+  </div>
+</section>
 
         <!-- 3. ADD / EDIT CHARACTER FORM VIEW -->
         <section v-if="currentView === 'capture'" class="vista-captura" v-if="currentUser">
           <div class="header-captura">
-            <h2>{{ isEditing ? '🖋️ Edit Character' : '➕ Register New Character' }}</h2>
-            <div class="acciones-json">
-              <button @click="overwriteCharactersJS" class="btn-exportar">💾 Save & Overwrite characters.js</button>
-            </div>
+            <h2>{{ isEditing ? '✏️ Edit Character' : '➕ Register New Character' }}</h2>
           </div>
 
           <form @submit.prevent="saveCharacter" class="form-personaje">
@@ -374,26 +377,25 @@
                 </button>
               </div>
 
-              <div class="galeria-formulario">
-                <div v-for="(img, index) in newChar.images" :key="index" class="item-imagen-input">
-                  <span class="badge-num">{{ index + 1 }}</span>
-                  <input 
-                    type="text" 
-                    v-model="newChar.images[index]" 
-                    :placeholder="index === 0 ? 'img/Characters/image.png (Required)' : 'img/Characters/secondary.png'"
-                    :required="index === 0"
-                  >
-                  <button 
-                    type="button" 
-                    class="btn-quitar-img" 
-                    @click="removeImageField(index)"
-                    v-if="newChar.images.length > 1"
-                    title="Remove image"
-                  >
-                    ✖
-                  </button>
-                </div>
-              </div>
+              <!-- Contenedor de miniaturas previsualizadas -->
+<div class="image-previews-grid" v-if="newChar.images && newChar.images.length > 0">
+  <div 
+    v-for="(img, idx) in newChar.images" 
+    :key="idx" 
+    class="preview-thumbnail-card"
+    v-show="img && img.trim() !== ''"
+  >
+    <img :src="img" alt="Preview" class="preview-img" />
+    <button 
+      type="button" 
+      class="remove-preview-btn" 
+      @click="removeCharacterImage(idx)" 
+      title="Eliminar imagen"
+    >
+      &times;
+    </button>
+  </div>
+</div>
             </fieldset>
 
             <fieldset>
@@ -530,7 +532,7 @@
         <!-- 5. ADD / EDIT Game MOD FORM VIEW -->
         <section v-if="currentView === 'captureGeneralMod' && currentUser" class="vista-captura">
           <div class="header-captura">
-            <h2>{{ isEditingGeneralMod ? '🖋️ Edit Game Mod' : '➕ Register New Game Mod' }}</h2>
+            <h2>{{ isEditingGeneralMod ? '✏️ Edit Game Mod' : '➕ Register New Game Mod' }}</h2>
           </div>
 
           <form @submit.prevent="saveGeneralMod" class="form-personaje">
@@ -682,7 +684,7 @@
               </div>
               
               <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; margin-top: 5px;">
-                <button @click="openEditMapForm(map)" class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;">🖋️ Edit</button>
+                <button @click="openEditMapForm(map)" class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;">✏️ Edit</button>
                 <button @click="deleteMap(map.id)" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">🗑️ Delete</button>
               </div>
             </div>
@@ -696,7 +698,7 @@
         <!-- 7. ADD / EDIT MAP FORM VIEW -->
         <section v-if="currentView === 'captureMap' && currentUser" class="vista-captura">
           <div class="header-captura">
-            <h2>{{ isEditingMap ? '🖋️ Edit Map' : '➕ Register New Map' }}</h2>
+            <h2>{{ isEditingMap ? '✏️ Edit Map' : '➕ Register New Map' }}</h2>
           </div>
 
           <form @submit.prevent="saveMap" class="form-personaje">
@@ -744,26 +746,24 @@
                 </button>
               </div>
 
-              <div class="galeria-formulario">
-                <div v-for="(img, index) in newMap.images" :key="index" class="item-imagen-input">
-                  <span class="badge-num">{{ index + 1 }}</span>
-                  <input 
-                    type="text" 
-                    v-model="newMap.images[index]" 
-                    :placeholder="index === 0 ? 'img/maps/image.png (Required)' : 'img/maps/secondary.png'"
-                    :required="index === 0"
-                  >
-                  <button 
-                    type="button" 
-                    class="btn-quitar-img" 
-                    @click="removeMapImageField(index)"
-                    v-if="newMap.images.length > 1"
-                    title="Remove image"
-                  >
-                    ✖
-                  </button>
-                </div>
-              </div>
+              <div class="image-previews-grid" v-if="newMap.images && newMap.images.length > 0">
+  <div 
+    v-for="(img, idx) in newMap.images" 
+    :key="idx" 
+    class="preview-thumbnail-card"
+    v-show="img && img.trim() !== ''"
+  >
+    <img :src="img" alt="Preview" class="preview-img" />
+    <button 
+      type="button" 
+      class="remove-preview-btn" 
+      @click="removeMapImage(idx)" 
+      title="Eliminar imagen"
+    >
+      &times;
+    </button>
+  </div>
+</div>
             </fieldset>
 
             <button type="submit" class="btn-guardar">
@@ -818,7 +818,7 @@
               
               <!-- Botones inferiores de Edición y Borrado -->
               <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; border-top: 1px dashed #ddd; padding-top: 10px;">
-                <button @click="openEditOutfitMixerForm(item)" class="btn-editar-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;">🖋️ Edit</button>
+                <button @click="openEditOutfitMixerForm(item)" class="btn-editar-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;">✏️ Edit</button>
                 <button @click="deleteOutfitMixer(item.id)" class="btn-eliminar-item" style="padding: 6px 12px; font-size: 13px;">🗑️ Delete</button>
               </div>
             </div>
@@ -832,7 +832,7 @@
         <!-- 9. ADD / EDIT OUTFIT MIXER FORM VIEW -->
         <section v-if="currentView === 'captureOutfitMixer' && currentUser" class="vista-captura">
           <div class="header-captura">
-            <h2>{{ isEditingOutfitMixer ? '🖋️ Edit Outfit Mixer' : '➕ Register New Outfit Mixer' }}</h2>
+            <h2>{{ isEditingOutfitMixer ? '✏️ Edit Outfit Mixer' : '➕ Register New Outfit Mixer' }}</h2>
           </div>
 
           <form @submit.prevent="saveOutfitMixer" class="form-personaje">
@@ -910,8 +910,14 @@
           <p class="alias" v-if="selectedCharacter.alias"><em>"{{ selectedCharacter.alias }}"</em></p>
           <p class="alias" v-if="selectedCharacter.modCreator"><em>By: {{ selectedCharacter.modCreator }}</em></p>
           
-          <!-- Botón de edición solo para personajes por ahora -->
-          <button v-if="selectedCharacter.type === 'character' && currentUser" class="btn-editar-modal" @click="openEditCharacterForm(selectedCharacter)">🖋️ Edit Data</button>
+          <div class="action-buttons" v-if="currentUser">
+  <button class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="editCharacter(selectedCharacter)">
+    ✏️ Edit
+  </button>
+  <button class="btn-delete-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="deleteCharacter(selectedCharacter.id)">
+    🗑️ Delete
+  </button>
+</div>
         </div>
 
         <div class="modal-body">
@@ -1005,7 +1011,6 @@
               <div class="bloque-datos" style="grid-column: 1 / -1;">
                 <h3>🗺️ Map Information</h3>
                 <p><strong>Name:</strong> {{ selectedCharacter.name }}</p>
-                <p v-if="selectedCharacter.modCreator"><strong>Creator:</strong> {{ selectedCharacter.modCreator }}</p>
                 <div v-if="selectedCharacter.isMod && selectedCharacter.url" style="margin-top: 15px;">
                   <a :href="selectedCharacter.url" target="_blank" class="btn-exportar" style="display: inline-block; text-decoration: none; text-align: center;">📥 Download Map Mod ↗</a>
                 </div>
@@ -1144,9 +1149,66 @@
       </div>
     </div>
 
-  </div>
+    <div 
+      v-if="franchiseFormModalVisible" 
+      class="modal-overlay" 
+      @click.self="closeNewFranchiseModal" 
+      style="z-index: 350;"
+    >
+      <div class="modal-content" style="max-width: 500px;">
+        <button class="modal-close" @click="closeNewFranchiseModal">✖</button>
+        <h2>➕ Register New Franchise</h2>
 
-  <script src="characters.js"></script>
+        <form @submit.prevent="saveFranchise" class="form-personaje" style="margin-top: 15px;">
+          <fieldset>
+            <legend>📋 Franchise Information</legend>
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+              <label>
+                Franchise Name*:
+                <input 
+                  type="text" 
+                  v-model="newFranchise.name" 
+                  required 
+                  placeholder="e.g. Resident Evil"
+                >
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="seccion-imagenes">
+            <legend>🖼 Franchise Banner / Image</legend>
+            
+            <div class="opciones-subida">
+              <label class="btn-adjuntar">
+                📁 Attach Image
+                <input type="file" accept="image/*" @change="attachFranchiseImage" hidden>
+              </label>
+            </div>
+
+            <!-- Vista previa de la imagen seleccionada -->
+            <div class="image-previews-grid" v-if="newFranchise.image" style="margin-top: 10px;">
+              <div class="preview-thumbnail-card">
+                <img :src="newFranchise.image" alt="Preview" class="preview-img" />
+                <button 
+                  type="button" 
+                  class="remove-preview-btn" 
+                  @click="removeFranchiseImage" 
+                  title="Eliminar imagen"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn-guardar" style="margin-top: 15px;">
+            💾 Save Franchise
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
