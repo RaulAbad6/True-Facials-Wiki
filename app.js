@@ -461,24 +461,39 @@ createApp({
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
+
+            // Detectar si el archivo original es PNG (suele tener transparencia)
+            const isPng = file.type === 'image/png';
+            
+            // Si NO es PNG (es JPG, etc.), limpiamos el fondo con blanco por seguridad
+            if (!isPng) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
             ctx.drawImage(img, 0, 0, width, height);
 
+            // Si es PNG, lo exportamos como 'image/png' para mantener la transparencia.
+            // Si es otro formato, usamos 'image/jpeg' con compresión.
+            const mimeType = isPng ? 'image/png' : 'image/jpeg';
             let quality = 0.85;
             const targetSize = 200 * 1024;
 
             const attemptCompress = () => {
               canvas.toBlob((blob) => {
-                if (blob.size > targetSize && quality > 0.3) {
+                // Si es PNG grande o JPEG que supera el peso, intentamos ajustar
+                if (blob.size > targetSize && !isPng && quality > 0.3) {
                   quality -= 0.15;
                   attemptCompress();
                 } else {
-                  const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-                    type: 'image/jpeg',
+                  const extension = isPng ? '.png' : '.jpg';
+                  const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, {
+                    type: mimeType,
                     lastModified: Date.now(),
                   });
                   resolve(optimizedFile);
                 }
-              }, 'image/jpeg', quality);
+              }, mimeType, quality);
             };
 
             attemptCompress();
@@ -1057,7 +1072,16 @@ createApp({
       if (this.newChar.popularMods.length === 0) {
         this.newChar.popularMods.push({ name: '', modCreator: '', url: '', image: '' });
       }
+      // Ajustar pendientes de mods si se elimina un índice
+      if (this.newChar.pendingModFiles) {
+        this.newChar.pendingModFiles = this.newChar.pendingModFiles.filter(item => item.index !== index);
+        this.newChar.pendingModFiles.forEach(item => {
+          if (item.index > index) item.index--;
+        });
+      }
     },
+
+    // Adjuntar imagen con vista previa para Popular Mods
     async attachModImage(event, index) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1070,12 +1094,22 @@ createApp({
       if (!this.newChar.pendingModFiles) {
         this.newChar.pendingModFiles = [];
       }
+      
+      // Reemplazar si ya existía un archivo pendiente para este índice exacto
+      this.newChar.pendingModFiles = this.newChar.pendingModFiles.filter(item => item.index !== index);
       this.newChar.pendingModFiles.push({
         index: index,
         file: optimizedFile
       });
 
       event.target.value = '';
+    },
+
+    removeModImage(index) {
+      this.newChar.popularMods[index].image = '';
+      if (this.newChar.pendingModFiles) {
+        this.newChar.pendingModFiles = this.newChar.pendingModFiles.filter(item => item.index !== index);
+      }
     },
 
     globalSearchMatch(character, term) {
@@ -1135,10 +1169,11 @@ createApp({
       this.newChar = JSON.parse(JSON.stringify(character));
       this.newChar.saving = false;
 
+      // Guardamos copias de seguridad de las imágenes originales para poder borrarlas del bucket si cambian o se eliminan
       this.newChar.oldImages = character.images ? [...character.images] : [];
       this.newChar.oldModImages = character.popularMods 
-      ? character.popularMods.map(m => m.image).filter(Boolean) 
-      : [];
+        ? character.popularMods.map(m => m.image).filter(Boolean) 
+        : [];
 
       if (this.newChar.isMod === undefined) this.newChar.isMod = false;
       if (!this.newChar.modCreator) this.newChar.modCreator = '';
@@ -1179,96 +1214,97 @@ createApp({
       this.currentView = 'capture';
     },
 
-  async saveCharacter() {
-  this.newChar.saving = true;
-  try {
-    // 1. Subir imágenes principales pendientes
-    if (this.newChar.pendingFiles && this.newChar.pendingFiles.length > 0) {
-      for (const item of this.newChar.pendingFiles) {
-        const publicUrl = await this.uploadImageToSupabase(item.file, 'characters');
-        if (publicUrl) {
-          this.newChar.images[item.index] = publicUrl;
+    async saveCharacter() {
+      this.newChar.saving = true;
+      try {
+        // 1. Subir imágenes principales pendientes
+        if (this.newChar.pendingFiles && this.newChar.pendingFiles.length > 0) {
+          for (const item of this.newChar.pendingFiles) {
+            const publicUrl = await this.uploadImageToSupabase(item.file, 'characters');
+            if (publicUrl) {
+              this.newChar.images[item.index] = publicUrl;
+            }
+          }
+          delete this.newChar.pendingFiles;
         }
-      }
-      delete this.newChar.pendingFiles;
-    }
 
-    // 2. Subir imágenes de Popular Mods pendientes
-    if (this.newChar.pendingModFiles && this.newChar.pendingModFiles.length > 0) {
-      for (const item of this.newChar.pendingModFiles) {
-        const publicUrl = await this.uploadImageToSupabase(item.file, 'mods-img');
-        if (publicUrl && this.newChar.popularMods[item.index]) {
-          this.newChar.popularMods[item.index].image = publicUrl;
+        // 2. Subir imágenes de Popular Mods pendientes
+        if (this.newChar.pendingModFiles && this.newChar.pendingModFiles.length > 0) {
+          for (const item of this.newChar.pendingModFiles) {
+            const publicUrl = await this.uploadImageToSupabase(item.file, 'mods-img');
+            if (publicUrl && this.newChar.popularMods[item.index]) {
+              this.newChar.popularMods[item.index].image = publicUrl;
+            }
+          }
+          delete this.newChar.pendingModFiles;
         }
+
+        // Limpieza de datos en blanco
+        this.newChar.franchise = this.newChar.franchise.map(f => f.trim()).filter(Boolean);
+        this.newChar.theme = this.newChar.theme.map(t => t.trim()).filter(Boolean);
+        this.newChar.occupation = this.newChar.occupation.map(o => o.trim()).filter(Boolean);
+        this.newChar.wardrobe = this.newChar.wardrobe.map(i => i.trim()).filter(Boolean);
+        this.newChar.images = this.newChar.images.map(i => i.trim()).filter(Boolean);
+
+        // 3. Borrar imágenes principales viejas del Storage si fueron removidas o reemplazadas
+        if (this.isEditing && this.newChar.oldImages) {
+          const removedImages = this.newChar.oldImages.filter(oldUrl => !this.newChar.images.includes(oldUrl));
+          const pathsToDelete = removedImages.map(url => this.extractStoragePath(url)).filter(Boolean);
+
+          if (pathsToDelete.length > 0) {
+            await supabaseClient.storage.from('wiki-images').remove(pathsToDelete);
+          }
+        }
+
+        // 4. Borrar imágenes de mods viejas del Storage si fueron removidas o reemplazadas
+        if (this.isEditing && this.newChar.oldModImages) {
+          const currentModImages = this.newChar.popularMods.map(m => m.image).filter(Boolean);
+          const removedModImages = this.newChar.oldModImages.filter(oldUrl => !currentModImages.includes(oldUrl));
+          const pathsToDelete = removedModImages.map(url => this.extractStoragePath(url)).filter(Boolean);
+
+          if (pathsToDelete.length > 0) {
+            await supabaseClient.storage.from('wiki-images').remove(pathsToDelete);
+          }
+        }
+
+        const payload = {
+          name: this.newChar.name,
+          alias: this.newChar.alias,
+          gender: this.newChar.gender,
+          model_creator: this.newChar.modelCreator,
+          franchise: this.newChar.franchise,
+          theme: this.newChar.theme,
+          occupation: this.newChar.occupation,
+          is_mod: this.newChar.isMod,
+          mod_creator: this.newChar.modCreator,
+          mod_download_url: this.newChar.modDownloadUrl,
+          related_character_id: this.newChar.relatedCharacterId,
+          physical: this.newChar.physical,
+          wardrobe: this.newChar.wardrobe,
+          images: this.newChar.images,
+          popular_mods: this.newChar.popularMods
+        };
+
+        if (this.newChar.id) {
+          payload.id = this.newChar.id;
+        }
+
+        const { error } = await supabaseClient.from('characters').upsert(payload);
+
+        if (error) {
+          alert('Error saving character: ' + error.message);
+        } else {
+          alert('Character saved successfully to cloud!');
+          await this.fetchCharacters();
+          this.openNewCharacterForm();
+          this.currentView = 'characters';
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.newChar.saving = false;
       }
-      delete this.newChar.pendingModFiles;
-    }
-
-    // Limpiar arreglos de texto
-    this.newChar.franchise = this.newChar.franchise.map(f => f.trim()).filter(Boolean);
-    this.newChar.theme = this.newChar.theme.map(t => t.trim()).filter(Boolean);
-    this.newChar.occupation = this.newChar.occupation.map(o => o.trim()).filter(Boolean);
-    this.newChar.wardrobe = this.newChar.wardrobe.map(i => i.trim()).filter(Boolean);
-    this.newChar.images = this.newChar.images.map(i => i.trim()).filter(Boolean);
-
-    // 3. Si estamos editando, identificar e eliminar imágenes sustituidas o quitadas
-    if (this.isEditing && this.newChar.oldImages) {
-      const removedImages = this.newChar.oldImages.filter(oldUrl => !this.newChar.images.includes(oldUrl));
-      const pathsToDelete = removedImages.map(url => this.extractStoragePath(url)).filter(Boolean);
-
-      if (pathsToDelete.length > 0) {
-        await supabaseClient.storage.from('wiki-images').remove(pathsToDelete);
-      }
-    }
-
-    if (this.isEditing && this.newChar.oldModImages) {
-      const currentModImages = this.newChar.popularMods.map(m => m.image).filter(Boolean);
-      const removedModImages = this.newChar.oldModImages.filter(oldUrl => !currentModImages.includes(oldUrl));
-      const pathsToDelete = removedModImages.map(url => this.extractStoragePath(url)).filter(Boolean);
-
-      if (pathsToDelete.length > 0) {
-        await supabaseClient.storage.from('wiki-images').remove(pathsToDelete);
-      }
-    }
-
-    const payload = {
-      name: this.newChar.name,
-      alias: this.newChar.alias,
-      gender: this.newChar.gender,
-      model_creator: this.newChar.modelCreator,
-      franchise: this.newChar.franchise,
-      theme: this.newChar.theme,
-      occupation: this.newChar.occupation,
-      is_mod: this.newChar.isMod,
-      mod_creator: this.newChar.modCreator,
-      mod_download_url: this.newChar.modDownloadUrl,
-      related_character_id: this.newChar.relatedCharacterId,
-      physical: this.newChar.physical,
-      wardrobe: this.newChar.wardrobe,
-      images: this.newChar.images,
-      popular_mods: this.newChar.popularMods
-    };
-
-    if (this.newChar.id) {
-      payload.id = this.newChar.id;
-    }
-
-    const { error } = await supabaseClient.from('characters').upsert(payload);
-
-    if (error) {
-      alert('Error saving character: ' + error.message);
-    } else {
-      alert('Character saved successfully to cloud!');
-      await this.fetchCharacters();
-      this.openNewCharacterForm();
-      this.currentView = 'characters';
-    }
-  } catch (e) {
-    console.error(e);
-  } finally {
-    this.newChar.saving = false;
-  }
-},
+    },
 
     async deleteCharacter(id) {
       if (confirm('Are you sure you want to delete this character?')) {

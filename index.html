@@ -425,13 +425,12 @@
               </button>
             </fieldset>
 
-            <fieldset>
+            <<fieldset>
               <legend>🧩 Popular Mods (Optional)</legend>
               
               <div class="lista-dinamica">
                 <div v-for="(mod, index) in newChar.popularMods" :key="index" style="margin-bottom: 1.5rem; border-bottom: 1px dashed #ccc; padding-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                   
-                  <!-- FILA 1: Mod Name, Mod Creator, Link (URL) y Remove Mod -->
                   <div style="display: flex; gap: 1rem; align-items: flex-end; width: 100%;">
                     <label style="flex: 1;">
                       Mod Name:
@@ -461,17 +460,31 @@
                     </div>
                   </div>
 
-                  <!-- FILA 2: Mod Image Path -->
-                  <label style="width: 100%;">
-                    Mod Image Path:
-                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem;">
-                      <input type="text" v-model="mod.image" placeholder="img/Mods Img/Goth 2B.png" style="flex: 1;">
-                      <label class="btn-adjuntar" style="cursor: pointer; padding: 0.5rem 1rem; white-space: nowrap;">
-                        📁 Select File
+                  <!-- SECCIÓN DE IMAGEN Y MINIATURA PARA EL MOD -->
+                  <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Mod Image:</label>
+                    <div class="opciones-subida">
+                      <label class="btn-adjuntar">
+                        📁 Attach Image
                         <input type="file" accept="image/*" @change="attachModImage($event, index)" hidden>
                       </label>
                     </div>
-                  </label>
+
+                    <!-- Vista previa de la miniatura del mod -->
+                    <div class="image-previews-grid" v-if="mod.image" style="margin-top: 10px;">
+                      <div class="preview-thumbnail-card">
+                        <img :src="mod.image" alt="Mod Preview" class="preview-img" />
+                        <button 
+                          type="button" 
+                          class="remove-preview-btn" 
+                          @click="removeModImage(index)" 
+                          title="Eliminar imagen"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
                 </div>
               </div>
