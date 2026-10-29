@@ -56,13 +56,13 @@
     </button>
     <button 
       :class="{ activo: currentView === 'generalMods' }" 
-      @click="currentView === 'generalMods'"
+      @click="currentView = 'generalMods'"
     >
       📦 Game Mods
     </button>
     <button 
       :class="{ activo: currentView === 'maps' }" 
-      @click="currentView === 'maps'"
+      @click="currentView = 'maps'"
     >
       🗺️ Maps
     </button>
@@ -481,8 +481,8 @@
               </button>
             </fieldset>
 
-            <button type="submit" class="btn-guardar">
-              {{ isEditing ? '💾 Update Character' : '💾 Save Character' }}
+           <button type="submit" class="btn-guardar" :disabled="newChar.saving">
+              {{ newChar.saving ? '⏳ Saving...' : (isEditing ? '💾 Update Character' : '💾 Save Character') }}
             </button>
           </form>
         </section>
@@ -651,8 +651,8 @@
               </div>
             </fieldset>
 
-            <button type="submit" class="btn-guardar">
-              {{ isEditingGeneralMod ? '💾 Update Game Mod' : '💾 Save Game Mod' }}
+            <button type="submit" class="btn-guardar" :disabled="newGeneralMod.saving">
+              {{ newGeneralMod.saving ? '⏳ Saving...' : (isEditingGeneralMod ? '💾 Update Game Mod' : '💾 Save Game Mod') }}
             </button>
           </form>
         </section>
@@ -766,8 +766,8 @@
 </div>
             </fieldset>
 
-            <button type="submit" class="btn-guardar">
-              {{ isEditingMap ? '💾 Update Map' : '💾 Save Map' }}
+            <button type="submit" class="btn-guardar" :disabled="newMap.saving">
+              {{ newMap.saving ? '⏳ Saving...' : (isEditingMap ? '💾 Update Map' : '💾 Save Map') }}
             </button>
           </form>
         </section>
@@ -1081,6 +1081,16 @@
         <h2>Franchise: {{ selectedFranchise }}</h2>
         <p class="subtitulo">Select a character to view details</p>
 
+        <!-- BOTONES DE EDICIÓN Y ELIMINACIÓN PARA ADMINS -->
+        <div class="action-buttons" v-if="currentUser" style="margin-bottom: 15px; display: flex; gap: 8px;">
+          <button class="btn-editar-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;" @click="openEditFranchiseModal(selectedFranchise)">
+            ✏️ Edit Franchise
+          </button>
+          <button class="btn-delete-modal" style="margin: 0; padding: 6px 12px; font-size: 13px;" @click="deleteFranchiseByName(selectedFranchise)">
+            🗑️ Delete Franchise
+          </button>
+        </div>
+
         <div class="lista-personajes-modal">
           <div 
             v-for="p in franchiseCharacters" 
@@ -1157,7 +1167,7 @@
     >
       <div class="modal-content" style="max-width: 500px;">
         <button class="modal-close" @click="closeNewFranchiseModal">✖</button>
-        <h2>➕ Register New Franchise</h2>
+        <h2>{{ isEditingFranchise ? '✏️ Edit Franchise' : '➕ Register New Franchise' }}</h2>
 
         <form @submit.prevent="saveFranchise" class="form-personaje" style="margin-top: 15px;">
           <fieldset>
@@ -1201,8 +1211,13 @@
             </div>
           </fieldset>
 
-          <button type="submit" class="btn-guardar" style="margin-top: 15px;">
-            💾 Save Franchise
+          <button 
+            type="submit" 
+            class="btn-guardar" 
+            style="margin-top: 15px;"
+            :disabled="newFranchise.saving"
+          >
+            {{ newFranchise.saving ? '⏳ Saving...' : (isEditingFranchise ? '💾 Update Franchise' : '💾 Save Franchise') }}
           </button>
         </form>
       </div>
