@@ -649,7 +649,6 @@
                     type="text" 
                     v-model="newGeneralMod.images[index]" 
                     :placeholder="index === 0 ? 'img/Mods Img/image.png (Required)' : 'img/Mods Img/secondary.png'"
-                    :required="index === 0"
                   >
                   <button 
                     type="button" 
@@ -697,9 +696,9 @@
               </div>
               
               <div v-if="currentUser" style="display: flex; gap: 8px; width: 100%; justify-content: flex-end; margin-top: 5px;">
-                <button @click="openEditMapForm(map)" class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;">✏️ Edit</button>
-                <button @click="deleteMap(map.id)" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">🗑️ Delete</button>
-              </div>
+                <button @click.stop="openEditMapForm(map)" class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;">✏️ Edit</button>
+                <button @click.stop="deleteMap(map.id)" class="btn-eliminar-item" style="padding: 4px 8px; font-size: 12px;">🗑️ Delete</button>
+              </div>  
             </div>
 
             <div v-if="maps.length === 0" class="sin-resultados">
@@ -914,7 +913,7 @@
     </div>
 
     <!-- MODAL 1: ITEM DETAILS (Character, Map, or General Mod) -->
-    <div v-if="characterModalVisible" class="modal-overlay modal-personaje-overlay" @click.self="closeCharacterModal">
+    <div v-if="characterModalVisible && selectedCharacter" class="modal-overlay modal-personaje-overlay" @click.self="closeCharacterModal">
       <div class="modal-content modal-personaje">
         <button class="modal-close" @click="closeCharacterModal">✖</button>
         
@@ -924,13 +923,13 @@
           <p class="alias" v-if="selectedCharacter.modCreator"><em>By: {{ selectedCharacter.modCreator }}</em></p>
           
           <div class="action-buttons" v-if="currentUser">
-  <button class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="openEditCharacterForm(selectedCharacter)">
-    ✏️ Edit
-  </button>
-  <button class="btn-delete-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="deleteCharacter(selectedCharacter.id)">
-    🗑️ Delete
-  </button>
-</div>
+            <button class="btn-editar-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="openEditModalForItem(selectedCharacter)">
+              ✏️ Edit
+            </button>
+            <button class="btn-delete-modal" style="margin: 0; padding: 4px 8px; font-size: 12px;" @click="deleteModalItem(selectedCharacter)">
+              🗑️ Delete
+            </button>
+          </div>
         </div>
 
         <div class="modal-body">

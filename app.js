@@ -437,70 +437,7 @@ createApp({
       }
     },
 
-    async optimizeImageFile(file) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-          const img = new Image();
-          img.src = event.target.result;
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-
-            const MAX_DIMENSION = 1200;
-            if (width > height && width > MAX_DIMENSION) {
-              height = Math.round((height * MAX_DIMENSION) / width);
-              width = MAX_DIMENSION;
-            } else if (height > MAX_DIMENSION) {
-              width = Math.round((width * MAX_DIMENSION) / height);
-              height = MAX_DIMENSION;
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-
-            // Detectar si el archivo original es PNG (suele tener transparencia)
-            const isPng = file.type === 'image/png';
-            
-            // Si NO es PNG (es JPG, etc.), limpiamos el fondo con blanco por seguridad
-            if (!isPng) {
-              ctx.fillStyle = '#FFFFFF';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Si es PNG, lo exportamos como 'image/png' para mantener la transparencia.
-            // Si es otro formato, usamos 'image/jpeg' con compresión.
-            const mimeType = isPng ? 'image/png' : 'image/jpeg';
-            let quality = 0.85;
-            const targetSize = 200 * 1024;
-
-            const attemptCompress = () => {
-              canvas.toBlob((blob) => {
-                // Si es PNG grande o JPEG que supera el peso, intentamos ajustar
-                if (blob.size > targetSize && !isPng && quality > 0.3) {
-                  quality -= 0.15;
-                  attemptCompress();
-                } else {
-                  const extension = isPng ? '.png' : '.jpg';
-                  const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, {
-                    type: mimeType,
-                    lastModified: Date.now(),
-                  });
-                  resolve(optimizedFile);
-                }
-              }, mimeType, quality);
-            };
-
-            attemptCompress();
-          };
-        };
-      });
-    },
+    optimizeImageFile
 
     // ---------------- CONSULTAS A SUPABASE ----------------
     async fetchAllData() {
@@ -832,6 +769,7 @@ createApp({
       }
 
       for (const file of files) {
+        // 1. Reescalamos y optimizamos la imagen (respetando transparencia si es PNG)
         const optimizedFile = await this.optimizeImageFile(file);
         const previewUrl = URL.createObjectURL(optimizedFile);
 
@@ -845,62 +783,54 @@ createApp({
       event.target.value = '';
     },
 
-    async saveGeneralMod() {
-  this.newGeneralMod.saving = true;
-  try {
-    if (this.newGeneralMod.pendingFiles && this.newGeneralMod.pendingFiles.length > 0) {
-      for (const item of this.newGeneralMod.pendingFiles) {
-        const publicUrl = await this.uploadImageToSupabase(item.file, 'general-mods');
-        if (publicUrl) {
-          this.newGeneralMod.images[item.index] = publicUrl;
+  async saveGeneralMod() {
+      this.newGeneralMod.saving = true;
+      try {
+        if (this.newGeneralMod.pendingFiles && this.newGeneralMod.pendingFiles.length > 0) {
+          for (const item of this.newGeneralMod.pendingFiles) {
+            const publicUrl = await this.uploadImageToSupabase(item.file, 'general-mods');
+            if (publicUrl) {
+              this.newGeneralMod.images[item.index] = publicUrl;
+            }
+          }
+          delete this.newGeneralMod.pendingFiles;
         }
+
+        this.newGeneralMod.images = this.newGeneralMod.images.map(i => i.trim()).filter(Boolean);
+
+        // Si es un mod nuevo y no tiene ID, le generamos uno de tipo texto
+        if (!this.newGeneralMod.id) {
+          this.newGeneralMod.id = 'gmod-' + Date.now();
+        }
+
+        // Preparamos el payload incluyendo siempre el ID
+        const payload = {
+          id: this.newGeneralMod.id,
+          name: this.newGeneralMod.name,
+          mod_creator: this.newGeneralMod.modCreator,
+          description: this.newGeneralMod.description,
+          same_download_url: this.newGeneralMod.sameDownloadUrl,
+          global_url: this.newGeneralMod.globalUrl,
+          changelog: this.newGeneralMod.changelog,
+          images: this.newGeneralMod.images
+        };
+
+        const { error } = await supabaseClient.from('general_mods').upsert(payload);
+
+        if (error) {
+          alert('Error saving mod: ' + error.message);
+        } else {
+          alert('General Mod saved successfully!');
+          await this.fetchGeneralMods();
+          this.openNewGeneralModForm();
+          this.currentView = 'generalMods';
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.newGeneralMod.saving = false;
       }
-      delete this.newGeneralMod.pendingFiles;
-    }
-
-    this.newGeneralMod.images = this.newGeneralMod.images.map(i => i.trim()).filter(Boolean);
-    if (this.newGeneralMod.images.length === 0) this.newGeneralMod.images = [''];
-
-    // Eliminar imágenes reemplazadas o eliminadas del mod general
-    if (this.isEditingGeneralMod && this.newGeneralMod.oldImages) {
-      const removedImages = this.newGeneralMod.oldImages.filter(oldUrl => !this.newGeneralMod.images.includes(oldUrl));
-      const pathsToDelete = removedImages.map(url => this.extractStoragePath(url)).filter(Boolean);
-
-      if (pathsToDelete.length > 0) {
-        await supabaseClient.storage.from('wiki-images').remove(pathsToDelete);
-      }
-    }
-
-    const payload = {
-      name: this.newGeneralMod.name,
-      mod_creator: this.newGeneralMod.modCreator,
-      description: this.newGeneralMod.description,
-      same_download_url: this.newGeneralMod.sameDownloadUrl,
-      global_url: this.newGeneralMod.globalUrl,
-      changelog: this.newGeneralMod.changelog,
-      images: this.newGeneralMod.images
-    };
-
-    if (this.newGeneralMod.id) {
-      payload.id = this.newGeneralMod.id;
-    }
-
-    const { error } = await supabaseClient.from('general_mods').upsert(payload);
-
-    if (error) {
-      alert('Error saving mod: ' + error.message);
-    } else {
-      alert('General Mod saved successfully!');
-      await this.fetchGeneralMods();
-      this.openNewGeneralModForm();
-      this.currentView = 'generalMods';
-    }
-  } catch (e) {
-    console.error(e);
-  } finally {
-    this.newGeneralMod.saving = false;
-  }
-},
+    },
 
     async deleteGeneralMod(id) {
       if (confirm('Are you sure you want to delete this general mod?')) {
@@ -1390,7 +1320,41 @@ createApp({
     },
     closeCharacterModal() {
       this.characterModalVisible = false;
-      this.selectedCharacter = null;
+      // Pequeño retardo o simplemente mantener el objeto para evitar errores de renderizado mientras se cierra el modal
+      setTimeout(() => {
+        this.selectedCharacter = null;
+      }, 100);
+    },
+    openEditModalForItem(item) {
+      if (!item) return;
+      this.closeCharacterModal();
+
+      if (item.type === 'map') {
+        this.openEditMapForm(item);
+      } else if (item.type === 'generalMod') {
+        this.openEditGeneralModForm(item);
+      } else if (item.type === 'outfitMixer') {
+        this.openEditOutfitMixerForm(item);
+      } else {
+        this.openEditCharacterForm(item);
+      }
+    },
+
+    deleteModalItem(item) {
+      if (!item) return;
+
+      if (item.type === 'map') {
+        this.deleteMap(item.id);
+        this.closeCharacterModal();
+      } else if (item.type === 'generalMod') {
+        this.deleteGeneralMod(item.id);
+        this.closeCharacterModal();
+      } else if (item.type === 'outfitMixer') {
+        this.deleteOutfitMixer(item.id);
+        this.closeCharacterModal();
+      } else {
+        this.deleteCharacter(item.id);
+      }
     },
     openFranchiseModal(franchiseName) {
       this.selectedFranchise = franchiseName;
