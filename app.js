@@ -437,7 +437,70 @@ createApp({
       }
     },
 
-    optimizeImageFile
+    async optimizeImageFile(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            const MAX_DIMENSION = 1200;
+            if (width > height && width > MAX_DIMENSION) {
+              height = Math.round((height * MAX_DIMENSION) / width);
+              width = MAX_DIMENSION;
+            } else if (height > MAX_DIMENSION) {
+              width = Math.round((width * MAX_DIMENSION) / height);
+              height = MAX_DIMENSION;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // Detectar si el archivo original es PNG (transparente)
+            const isPng = file.type === 'image/png';
+            
+            // Si NO es PNG, rellenamos con fondo blanco por seguridad
+            if (!isPng) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // CAMBIO CLAVE: Usar 'image/webp' para los PNG para mantener transparencia 
+            // pero comprimiéndolos como JPG para que pesen muy poco.
+            const mimeType = isPng ? 'image/webp' : 'image/jpeg';
+            let quality = 0.85;
+            const targetSize = 200 * 1024; // Meta: ~200 KB
+
+            const attemptCompress = () => {
+              canvas.toBlob((blob) => {
+                // Si el archivo sigue pesando más de 200KB, comprimimos un poco más la calidad
+                if (blob.size > targetSize && quality > 0.3) {
+                  quality -= 0.15;
+                  attemptCompress();
+                } else {
+                  const extension = isPng ? '.webp' : '.jpg';
+                  const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, {
+                    type: mimeType,
+                    lastModified: Date.now(),
+                  });
+                  resolve(optimizedFile);
+                }
+              }, mimeType, quality);
+            };
+
+            attemptCompress();
+          };
+        };
+      });
+    },
 
     // ---------------- CONSULTAS A SUPABASE ----------------
     async fetchAllData() {
